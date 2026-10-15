@@ -1,1 +1,159 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI 상식 퀴즈</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    font-family: -apple-system, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    background: linear-gradient(135deg, #4f46e5, #0ea5e9); padding: 16px; color: #1f2937;
+  }
+  .card {
+    background: #fff; width: 100%; max-width: 480px; border-radius: 20px;
+    padding: 28px 24px; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+  }
+  h1 { margin: 0 0 6px; font-size: 1.5rem; }
+  .sub { color: #6b7280; margin-bottom: 20px; font-size: .95rem; }
+  .progress { height: 8px; background: #e5e7eb; border-radius: 99px; overflow: hidden; margin-bottom: 16px; }
+  .bar { height: 100%; width: 0; background: #4f46e5; transition: width .3s; }
+  .q { font-size: 1.15rem; font-weight: 700; margin-bottom: 16px; line-height: 1.5; }
+  .opt {
+    display: block; width: 100%; text-align: left; padding: 14px; margin-bottom: 10px;
+    border: 2px solid #e5e7eb; border-radius: 12px; background: #fff; font-size: 1rem; cursor: pointer;
+  }
+  .opt:hover:not(:disabled) { border-color: #4f46e5; }
+  .opt.correct { background: #dcfce7; border-color: #16a34a; }
+  .opt.wrong { background: #fee2e2; border-color: #dc2626; }
+  .explain { background: #f3f4f6; padding: 12px; border-radius: 10px; font-size: .92rem; margin: 6px 0 14px; display: none; }
+  .btn {
+    width: 100%; padding: 14px; border: 0; border-radius: 12px; background: #4f46e5;
+    color: #fff; font-size: 1rem; font-weight: 700; cursor: pointer;
+  }
+  .btn:hover { background: #4338ca; }
+  .hidden { display: none; }
+  .score { font-size: 3rem; font-weight: 800; text-align: center; color: #4f46e5; margin: 10px 0; }
+  .msg { text-align: center; margin-bottom: 20px; font-size: 1.05rem; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div id="start">
+    <h1>🤖 AI 상식 퀴즈</h1>
+    <p class="sub">인공지능에 대해 얼마나 알고 있나요? 총 8문제예요.</p>
+    <button class="btn" onclick="startQuiz()">시작하기</button>
+  </div>
 
+  <div id="quiz" class="hidden">
+    <div class="progress"><div class="bar" id="bar"></div></div>
+    <div class="sub" id="counter"></div>
+    <div class="q" id="question"></div>
+    <div id="options"></div>
+    <div class="explain" id="explain"></div>
+    <button class="btn hidden" id="next" onclick="nextQ()">다음 문제</button>
+  </div>
+
+  <div id="result" class="hidden">
+    <h1 style="text-align:center">결과</h1>
+    <div class="score" id="score"></div>
+    <div class="msg" id="msg"></div>
+    <button class="btn" onclick="startQuiz()">다시 하기</button>
+  </div>
+</div>
+
+<script>
+const questions = [
+  { q: "ChatGPT, Claude, Gemini처럼 글을 이해하고 만들어 내는 AI를 무엇이라고 부를까요?",
+    o: ["대규모 언어 모델(LLM)", "검색 엔진", "스프레드시트", "운영체제"], a: 0,
+    e: "LLM(Large Language Model)은 방대한 텍스트로 학습한 언어 모델이에요." },
+  { q: "'이미테이션 게임' 영화의 주인공으로, 기계가 생각할 수 있는지 묻는 테스트를 제안한 사람은?",
+    o: ["스티브 잡스", "앨런 튜링", "빌 게이츠", "알베르트 아인슈타인"], a: 1,
+    e: "앨런 튜링은 '튜링 테스트'를 제안했어요." },
+  { q: "AI에게 원하는 결과를 얻기 위해 입력하는 지시문을 무엇이라고 할까요?",
+    o: ["프롬프트", "쿠키", "픽셀", "라우터"], a: 0,
+    e: "프롬프트를 구체적으로 쓸수록 더 좋은 답을 얻기 쉬워요." },
+  { q: "AI가 사실이 아닌 내용을 그럴듯하게 지어내는 현상을 무엇이라고 할까요?",
+    o: ["캐싱", "환각(할루시네이션)", "압축", "로딩"], a: 1,
+    e: "그래서 AI의 답은 직접 확인(검증)하는 습관이 중요해요." },
+  { q: "HTML 파일을 인터넷에 무료로 공개할 수 있는 GitHub의 기능은?",
+    o: ["GitHub Actions", "GitHub Sponsors", "GitHub Pages", "GitHub Gist"], a: 2,
+    e: "GitHub Pages로 https://아이디.github.io/저장소이름/ 주소가 만들어져요." },
+  { q: "웹 페이지의 모양(색, 글꼴, 배치)을 꾸미는 언어는?",
+    o: ["HTML", "CSS", "SQL", "Python"], a: 1,
+    e: "HTML은 구조, CSS는 디자인, JavaScript는 동작을 담당해요." },
+  { q: "AI가 결과를 낸 뒤 그 내용이 맞는지 사람이 확인하는 단계를 가리키는 말은?",
+    o: ["오케스트레이션", "베리피케이션", "트랜스퍼", "컴파일"], a: 1,
+    e: "베리피케이션(Verification)은 '검증'을 뜻해요." },
+  { q: "스마트폰 얼굴 인식, 추천 영상 등에 널리 쓰이는, 데이터로부터 스스로 규칙을 배우는 기술은?",
+    o: ["머신러닝", "프린터 드라이버", "블루투스", "와이파이"], a: 0,
+    e: "머신러닝은 AI의 핵심 분야 중 하나예요." }
+];
+
+let idx = 0, score = 0, answered = false;
+const $ = id => document.getElementById(id);
+
+function startQuiz() {
+  idx = 0; score = 0;
+  $("start").classList.add("hidden");
+  $("result").classList.add("hidden");
+  $("quiz").classList.remove("hidden");
+  showQ();
+}
+
+function showQ() {
+  answered = false;
+  const item = questions[idx];
+  $("counter").textContent = `문제 ${idx + 1} / ${questions.length}`;
+  $("bar").style.width = (idx / questions.length * 100) + "%";
+  $("question").textContent = item.q;
+  $("explain").style.display = "none";
+  $("next").classList.add("hidden");
+  const box = $("options");
+  box.innerHTML = "";
+  item.o.forEach((text, i) => {
+    const b = document.createElement("button");
+    b.className = "opt";
+    b.textContent = text;
+    b.onclick = () => choose(i);
+    box.appendChild(b);
+  });
+}
+
+function choose(i) {
+  if (answered) return;
+  answered = true;
+  const item = questions[idx];
+  const btns = document.querySelectorAll(".opt");
+  btns.forEach((b, n) => {
+    b.disabled = true;
+    if (n === item.a) b.classList.add("correct");
+  });
+  if (i === item.a) score++;
+  else btns[i].classList.add("wrong");
+  $("explain").textContent = (i === item.a ? "정답! " : "아쉬워요. ") + item.e;
+  $("explain").style.display = "block";
+  $("next").textContent = idx === questions.length - 1 ? "결과 보기" : "다음 문제";
+  $("next").classList.remove("hidden");
+}
+
+function nextQ() {
+  idx++;
+  if (idx >= questions.length) return showResult();
+  showQ();
+}
+
+function showResult() {
+  $("quiz").classList.add("hidden");
+  $("result").classList.remove("hidden");
+  $("score").textContent = `${score} / ${questions.length}`;
+  const ratio = score / questions.length;
+  $("msg").textContent =
+    ratio === 1 ? "완벽해요! AI 박사님 🎓" :
+    ratio >= 0.6 ? "잘했어요! 조금만 더 공부하면 만점 👍" :
+    "괜찮아요, 다시 도전해 봐요 💪";
+}
+</script>
+</body>
+</html>
